@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dlicom Coin Slice</title>
+  <link id="favicon" rel="icon" type="image/png" href="favicon.png">
+  <style>
+    /* Базові стилі у Web3-естетиці */
+    :root{
+      --bg: #1a1a1a;
+      --fg: #e6e6e6;
+      --accent: #4da3ff;
+      --accent-2: #7cc4ff;
+      --danger: #ff4d4f;
+      --glass: rgba(255,255,255,0.06);
+      --glass-2: rgba(255,255,255,0.12);
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+      overflow: hidden;
+    }
+    #game {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background:
+        radial-gradient(1200px 800px at 20% 10%, rgba(77,163,255,0.07), transparent 60%),
+        radial-gradient(1200px 800px at 80% 90%, rgba(124,196,255,0.05), transparent 60%),
+        var(--bg);
+      cursor: none; /* Ховаємо курсор для більшого занурення */
+    }
+    .hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      user-select: none;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+      z-index: 5;
+    }
+    .hud .group-left { display: flex; gap: 10px; }
+    .hud .pill {
+      background: var(--glass);
+      border: 1px solid var(--glass-2);
+      backdrop-filter: blur(8px);
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .hud .label {
+      opacity: 0.8;
+      margin-right: 8px;
+      font-weight: 500;
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(800px 600px at 50% 50%, rgba(0,0,0,0.4), rgba(0,0,0,0.75));
+      z-index: 10;
+    }
+    .dialog {
+      background: var(--glass);
+      border: 1px solid var(--glass-2);
+      padding: 24px 28px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 18px 64px rgba(0,0,0,0.45);
+    }
+    .dialog .title{
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+    .dialog h1{
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+    .dialog p{
+      margin: 0 0 18px;
+      opacity: 0.85;
+    }
+    /* Фонова анімація у головному меню */
+    #mainMenu { position: fixed; }
+    #mainMenu .dialog{ position: relative; z-index: 2; }
+    #mainMenu .fx-layer{
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+    /* Лінки в головному меню */
+    #mainMenu .menu-brand, 
+    #mainMenu .menu-credits{
+      position: absolute;
+      pointer-events: auto;
+      z-index: 3;
+    }
+    #mainMenu .menu-brand{ top: 16px; left: 16px; }
+    #mainMenu .menu-credits{ right: 16px; bottom: 16px; }
+    #mainMenu .menu-link{
+      display: inline-block;
+      text-decoration: none;
+      color: var(--fg);
+      background: var(--glass);
+      border: 1px solid var(--glass-2);
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 6px 24px rgba(0,0,0,0.25);
+      transition: filter .2s ease, transform .08s ease;
+    }
+    #mainMenu .menu-link:hover{ filter: brightness(1.08); }
+    #mainMenu .menu-link:active{ transform: translateY(1px); }
+    #mainMenu .menu-link a{
+      color: inherit;
+      text-decoration: none;
+      font-weight: 800;
+    }
+    .btn {
+      appearance: none;
+      border: none;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color: #001227;
+      padding: 10px 18px;
+      font-weight: 700;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .08s ease, filter .2s ease;
+      box-shadow: 0 8px 28px rgba(77,163,255,0.35);
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { transform: translateY(1px) scale(0.99); }
+    .hint {
+      display: block;
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <!-- HUD -->
+  <div class="hud">
+    <div class="group-left">
+      <div class="pill"><span class="label" id="labelScore">Score</span><span id="score">0</span></div>
+      <div class="pill"><span class="label" id="labelLives">Lives</span><span id="lives">3</span></div>
+    </div>
+    <div class="pill"><span class="label" id="labelTime">Time</span><span id="time">00:00</span></div>
+  </div>
+  <!-- Canvas -->
+  <canvas id="game"></canvas>
+  <!-- Game Over -->
+  <div class="overlay" id="gameOver">
+    <div class="dialog">
+      <h1 id="goTitle">Game Over</h1>
+      <p id="goMsg">Монета впала нерозрізаною</p>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button class="btn" id="restartBtn">Restart</button>
+        <button class="btn" id="menuBtn">Main Menu</button>
+      </div>
+      <span class="hint" id="goHint">Порада: тягни мишкою швидко для точного розрізу</span>
+    </div>
+  </div>
+  <!-- Main Menu -->
+  <div class="overlay" id="mainMenu">
+    <canvas id="menuFx" class="fx-layer"></canvas>
+    <div class="dialog">
+      <h1 class="title" id="menuTitle">Dlicom Coin Slice</h1>
+      <p id="menuDesc">Розрізай монети, уникай падінь. У тебе 3 життя.</p>
+      <button class="btn" id="startBtn">Start</button>
+      <button class="btn" id="soundBtn" style="margin-left:10px;">Sound: On</button>
+      <span class="hint" id="menuHint">ЛКМ і рух мишею для розрізу</span>
+    </div>
+    <div class="menu-brand">
+      <a class="menu-link" href="https://x.com/DlicomApp" target="_blank" rel="noopener">Dlicom</a>
+    </div>
+    <div class="menu-credits">
+      <a class="menu-link" id="creditsLink" href="https://x.com/Igor02090725577" target="_blank" rel="noopener" title="Розробник">
+        <span id="creditsPrefix">Розробник — </span><span id="creditsName">Blaze Reaper</span>
+      </a>
+    </div>
+    <div class="menu-lang" style="position:absolute; top:16px; right:16px; z-index:3;">
+      <select id="langSelect" class="menu-select" style="appearance:none; background: var(--glass); color: var(--fg); border:1px solid var(--glass-2); padding:8px 12px; border-radius:12px; font-weight:700; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 6px 24px rgba(0,0,0,0.25);">
+        <option value="en">EN</option>
+        <option value="uk">UA</option>
+        <option value="ru">RU</option>
+      </select>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // НАЛАШТУВАННЯ / КОНФІГ
+    // =========================
+    // LOGO_PATH: замініть цей шлях на свій (наприклад, 'assets/logo.png')
+    const LOGO_PATH = 'logo.png';
+    // Фон головного меню (зображення). Заміни шлях за потреби
+    const MENU_BG_PATH = 'menu-bg.jpg';
+    // Джерело для favicon (рекомендовано квадратне PNG). Якщо немає — використається LOGO_PATH/плейсхолдер
+    const FAVICON_SRC = 'favicon.png';
+    // Спрайт "чудика" для фону головного меню
+    const MENU_MASCOT_PATH = 'mascot.png';
+    const GAME_BG_PATH = 'game-bg.jpg';
+    // Зображення монети (замініть шлях на надане вами)
+    const COIN_IMG_PATH = 'coin.png';
+    // Якщо логотип недоступний, відобразиться плейсхолдер — синє коло з написом "DLI"
+
+    // Фізичні константи
+    const GRAVITY = 0.35;
+    const AIR_DRAG = 0.995;
+    const BOUNCE = 0.88; // втрата енергії при відскоку від рамок
+    const MAX_LIVES = 3; // кількість життів
+
+    // Параметри спавну
+    const BASE_SPAWN_INTERVAL = 1200; // мс
+    const MIN_SPAWN_INTERVAL = 400;   // мс
+    const SPAWN_STEP = 80;            // кожні 10с інтервал зменшується на 80 мс
+
+    // Початкові швидкості
+    const BASE_VY_MIN = -14;
+    const BASE_VY_MAX = -22;
+    const BASE_VX_ABS = 6;
+
+    // Розміри монети
+    const COIN_RADIUS_MIN = 28;
+    const COIN_RADIUS_MAX = 40;
+
+    // Слід "лезо"
+    const TRAIL_MAX_POINTS = 28;
+    const TRAIL_FADE_MS = 420;
+
+    // Канвас і контекст
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // HUD елементи
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const livesEl = document.getElementById('lives');
+    const hudEl = document.querySelector('.hud');
+    const overlay = document.getElementById('gameOver');
+    const restartBtn = document.getElementById('restartBtn');
+    const mainMenu = document.getElementById('mainMenu');
+    const startBtn = document.getElementById('startBtn');
+    const menuBtn = document.getElementById('menuBtn');
+    const menuFxCanvas = document.getElementById('menuFx');
+    const menuFxCtx = menuFxCanvas ? menuFxCanvas.getContext('2d') : null;
+    const langSelect = document.getElementById('langSelect');
+    const menuTitleEl = document.getElementById('menuTitle');
+    const menuDescEl = document.getElementById('menuDesc');
+    const menuHintEl = document.getElementById('menuHint');
+    const creditsPrefixEl = document.getElementById('creditsPrefix');
+    const creditsLink = document.getElementById('creditsLink');
+    const labelScoreEl = document.getElementById('labelScore');
+    const labelLivesEl = document.getElementById('labelLives');
+    const labelTimeEl = document.getElementById('labelTime');
+    const goTitleEl = document.getElementById('goTitle');
+    const goMsgEl = document.getElementById('goMsg');
+    const goHintEl = document.getElementById('goHint');
+    const soundBtn = document.getElementById('soundBtn');
+
+    // --- I18N ---
+    const i18n = {
+      en: {
+        menu_title: 'Dlicom Coin Slice',
+        menu_desc: 'Slice coins, avoid drops. You have 3 lives.',
+        start: 'Start',
+        hint_menu: 'Hold LMB and drag to slice',
+        credits_prefix: 'Developer — ',
+        sound_on: 'Sound: On',
+        sound_off: 'Sound: Off',
+        score: 'Score',
+        lives: 'Lives',
+        time: 'Time',
+        go_title: 'Game Over',
+        go_msg: 'A coin fell unsliced',
+        go_hint: 'Hint: drag fast for precise cut',
+        restart: 'Restart',
+        main_menu: 'Main Menu'
+      },
+      uk: {
+        menu_title: 'Dlicom Coin Slice',
+        menu_desc: 'Розрізай монети, уникай падінь. У тебе 3 життя.',
+        start: 'Старт',
+        hint_menu: 'ЛКМ і рух мишею для розрізу',
+        credits_prefix: 'Розробник — ',
+        sound_on: 'Звук: Увімкнено',
+        sound_off: 'Звук: Вимкнено',
+        score: 'Рахунок',
+        lives: 'Життя',
+        time: 'Час',
+        go_title: 'Game Over',
+        go_msg: 'Монета впала нерозрізаною',
+        go_hint: 'Порада: тягни мишкою швидко для точного розрізу',
+        restart: 'Перезапустити',
+        main_menu: 'Головне меню'
+      },
+      ru: {
+        menu_title: 'Dlicom Coin Slice',
+        menu_desc: 'Разрезай монеты, не дай им упасть. У тебя 3 жизни.',
+        start: 'Старт',
+        hint_menu: 'ЛКМ и движение мышью для разреза',
+        credits_prefix: 'Разработчик — ',
+        sound_on: 'Звук: Вкл.',
+        sound_off: 'Звук: Выкл.',
+        score: 'Счёт',
+        lives: 'Жизни',
+        time: 'Время',
+        go_title: 'Игра окончена',
+        go_msg: 'Монета упала неразрезанной',
+        go_hint: 'Совет: веди быстрее для точного разреза',
+        restart: 'Заново',
+        main_menu: 'Главное меню'
+      }
+    };
+    let currentLang = (localStorage.getItem('dlicom_lang') || 'uk');
+    let sfxEnabled = (localStorage.getItem('dlicom_sfx') || 'on') !== 'off';
+    let audioCtx = null;
+    let masterGain = null;
+    function ensureAudio(){
+      if (!audioCtx){
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new Ctx();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(sfxEnabled ? 0.7 : 0, audioCtx.currentTime);
+        masterGain.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function setSfxEnabled(v){
+      sfxEnabled = v;
+      localStorage.setItem('dlicom_sfx', v ? 'on' : 'off');
+      if (masterGain) masterGain.gain.setValueAtTime(v ? 0.7 : 0, audioCtx.currentTime);
+      if (soundBtn){
+        const t = i18n[currentLang] || i18n.uk;
+        soundBtn.textContent = v ? t.sound_on : t.sound_off;
+      }
+    }
+    function tone(f0, f1, dur, type, gain){
+      if (!sfxEnabled) return;
+      ensureAudio();
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(f0, t);
+      osc.frequency.linearRampToValueAtTime(f1, t + dur);
+      g.gain.setValueAtTime(gain || 0.08, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(t);
+      osc.stop(t + dur);
+    }
+    function sfx(name){
+      if (!sfxEnabled) return;
+      if (name === 'slice'){
+        tone(1400, 300, 0.09, 'sawtooth', 0.09);
+        tone(900, 200, 0.12, 'triangle', 0.06);
+      } else if (name === 'spawn'){
+        tone(500, 800, 0.06, 'sine', 0.05);
+      } else if (name === 'life'){
+        tone(500, 220, 0.18, 'square', 0.07);
+      } else if (name === 'gameover'){
+        tone(300, 120, 0.5, 'sawtooth', 0.1);
+      } else if (name === 'click'){
+        tone(800, 600, 0.05, 'sine', 0.04);
+      }
+    }
+    function applyLanguage(){
+      const t = i18n[currentLang] || i18n.uk;
+      if (menuTitleEl) menuTitleEl.textContent = t.menu_title;
+      if (menuDescEl) menuDescEl.textContent = t.menu_desc;
+      if (startBtn) startBtn.textContent = t.start;
+      if (menuHintEl) menuHintEl.textContent = t.hint_menu;
+      if (creditsPrefixEl) creditsPrefixEl.textContent = t.credits_prefix;
+      if (labelScoreEl) labelScoreEl.textContent = t.score;
+      if (labelLivesEl) labelLivesEl.textContent = t.lives;
+      if (labelTimeEl) labelTimeEl.textContent = t.time;
+      if (goTitleEl) goTitleEl.textContent = t.go_title;
+      if (goMsgEl) goMsgEl.textContent = t.go_msg;
+      if (goHintEl) goHintEl.textContent = t.go_hint;
+      if (restartBtn) restartBtn.textContent = t.restart;
+      if (menuBtn) menuBtn.textContent = t.main_menu;
+      if (langSelect) langSelect.value = currentLang;
+      if (soundBtn) soundBtn.textContent = sfxEnabled ? t.sound_on : t.sound_off;
+    }
+    if (langSelect){
+      langSelect.addEventListener('change', ()=>{
+        currentLang = langSelect.value;
+        localStorage.setItem('dlicom_lang', currentLang);
+        applyLanguage();
+      });
+    }
+    if (soundBtn){
+      soundBtn.addEventListener('click', ()=>{
+        setSfxEnabled(!sfxEnabled);
+        sfx('click');
+      });
+    }
+
+    // Встановлення favicon із файлу (без модифікацій). Якщо відсутній — fallback на LOGO_PATH
+    (function(){
+      const link = document.getElementById('favicon');
+      const img = new Image();
+      img.onload = ()=> { if (link) link.href = FAVICON_SRC; };
+      img.onerror = ()=> { if (link) link.href = LOGO_PATH; };
+      img.src = FAVICON_SRC;
+    })();
+
+    (function(){
+      const img = new Image();
+      img.onload = ()=>{
+        canvas.style.background = `linear-gradient( to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.5) ), url('${GAME_BG_PATH}') center/cover no-repeat`;
+      };
+      img.src = GAME_BG_PATH;
+    })();
+
+    // Завантаження фону головного меню
+    (function(){
+      if (!mainMenu) return;
+      const img = new Image();
+      img.onload = () => {
+        mainMenu.style.background = `linear-gradient( to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.6) ), url('${MENU_BG_PATH}') center/cover no-repeat`;
+      };
+      img.src = MENU_BG_PATH;
+    })();
+
+    // --- Фонова анімація "чудиків" у головному меню ---
+    let menuFxRunning = false;
+    let menuFxLast = 0;
+    let menuFxSprites = [];
+    const mascotImg = new Image();
+    mascotImg.src = MENU_MASCOT_PATH || FAVICON_SRC || LOGO_PATH;
+
+    function menuFxResize(){
+      if (!menuFxCanvas || !menuFxCtx) return;
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      menuFxCanvas.width = Math.floor((mainMenu?.clientWidth || window.innerWidth) * dpr);
+      menuFxCanvas.height = Math.floor((mainMenu?.clientHeight || window.innerHeight) * dpr);
+      menuFxCanvas.style.width = '100%';
+      menuFxCanvas.style.height = '100%';
+      menuFxCtx.setTransform(dpr,0,0,dpr,0,0);
+      // Перегенеруємо кількість спрайтів
+      const baseCount = Math.max(8, Math.floor((menuFxCanvas.clientWidth || window.innerWidth)/140));
+      const target = baseCount;
+      menuFxSprites.length = 0;
+      for (let i=0;i<target;i++){
+        const size = Math.random()*24 + 28; // висота
+        const aspect = 1.18 + Math.random()*0.12; // зробити трохи ширшим (≈1.18–1.30)
+        menuFxSprites.push({
+          x: Math.random()*(menuFxCanvas.clientWidth||window.innerWidth),
+          y: Math.random()*- (menuFxCanvas.clientHeight||window.innerHeight),
+          s: size,       // висота
+          sx: size*aspect, // ширина
+          vy: Math.random()*30 + 20, // швидкість падіння
+          r: Math.random()*Math.PI*2,
+          vr: (Math.random()*0.4 - 0.2)*0.15, // повільне обертання
+          a: Math.random()*0.08 + 0.08 // прозорість 0.08–0.16
+        });
+      }
+    }
+    function menuFxStep(ts){
+      if (!menuFxRunning || !menuFxCanvas || !menuFxCtx) return;
+      if (!menuFxLast) menuFxLast = ts;
+      const dt = (ts - menuFxLast)/1000;
+      menuFxLast = ts;
+      const w = menuFxCanvas.clientWidth || window.innerWidth;
+      const h = menuFxCanvas.clientHeight || window.innerHeight;
+      menuFxCtx.clearRect(0,0,w,h);
+      for (const sp of menuFxSprites){
+        sp.y += sp.vy * dt;
+        sp.r += sp.vr;
+        if (sp.y - sp.s > h){
+          sp.y = -sp.s - Math.random()*h*0.4;
+          sp.x = Math.random()*w;
+          sp.vy = Math.random()*30 + 20;
+          sp.s = Math.random()*24 + 28;
+          sp.sx = sp.s * (1.18 + Math.random()*0.12);
+          sp.a = Math.random()*0.08 + 0.08;
+        }
+        if (mascotImg.complete){
+          menuFxCtx.save();
+          menuFxCtx.globalAlpha = sp.a;
+          menuFxCtx.translate(sp.x, sp.y);
+          menuFxCtx.rotate(sp.r);
+          menuFxCtx.drawImage(mascotImg, -sp.sx/2, -sp.s/2, sp.sx, sp.s);
+          menuFxCtx.restore();
+        }
+      }
+      if (menuFxRunning) requestAnimationFrame(menuFxStep);
+    }
+    function startMenuFx(){
+      if (!menuFxCanvas || !menuFxCtx) return;
+      menuFxRunning = true;
+      menuFxLast = 0;
+      menuFxResize();
+      requestAnimationFrame(menuFxStep);
+    }
+    function stopMenuFx(){
+      menuFxRunning = false;
+      menuFxLast = 0;
+      if (menuFxCtx){
+        menuFxCtx.clearRect(0,0,menuFxCanvas.clientWidth||0, menuFxCanvas.clientHeight||0);
+      }
+    }
+    window.addEventListener('resize', menuFxResize);
+
+    // Логотип (для плейсхолдера/фавікону)
+    const logoImg = new Image();
+    let logoReady = false;
+    logoImg.onload = () => { logoReady = true; };
+    logoImg.onerror = () => { logoReady = false; };
+    logoImg.src = LOGO_PATH;
+    // Монета
+    const coinImg = new Image();
+    let coinReady = false;
+    coinImg.onload = () => { coinReady = true; };
+    coinImg.onerror = () => { coinReady = false; };
+    coinImg.src = COIN_IMG_PATH;
+
+    // Стан гри
+    let coins = [];      // не розрізані монети
+    let pieces = [];     // частини після розрізу
+    let score = 0;
+    let startTime = 0;
+    let lastFrame = 0;
+    let accumulator = 0; // для керування спавном
+    let spawnInterval = BASE_SPAWN_INTERVAL;
+    let gameOver = false;
+    let lives = MAX_LIVES;
+
+    // Управління мишкою
+    let isCutting = false;
+    let lastMouse = null;
+    let trail = [];
+    let pointerLocked = false;
+    let cursorX = 0, cursorY = 0;
+    function tryPointerLock(){
+      if (canvas.requestPointerLock) canvas.requestPointerLock();
+    }
+    document.addEventListener('pointerlockchange', ()=>{
+      pointerLocked = (document.pointerLockElement === canvas);
+      if (pointerLocked){
+        cursorX = clamp(cursorX, 0, canvas.clientWidth);
+        cursorY = clamp(cursorY, 0, canvas.clientHeight);
+        lastMouse = { x: cursorX, y: cursorY };
+      } else {
+        isCutting = false;
+      }
+    });
+
+    // Ресайз полотна
+    function resize(){
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Допоміжні утиліти
+    const rand = (min,max)=> Math.random()*(max-min)+min;
+    const clamp = (v,mi,ma)=> Math.max(mi, Math.min(ma,v));
+    const now = ()=> performance.now();
+    function fmtTime(ms){
+      const s = Math.floor(ms/1000);
+      const mm = String(Math.floor(s/60)).padStart(2,'0');
+      const ss = String(s%60).padStart(2,'0');
+      return mm+':'+ss;
+    }
+    function dist2(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; }
+    function segCircleHit(p0,p1,c,r){
+      // Відстань від центру кола до відрізка
+      const vx = p1.x - p0.x;
+      const vy = p1.y - p0.y;
+      const wx = c.x - p0.x;
+      const wy = c.y - p0.y;
+      const proj = (wx*vx + wy*vy) / (vx*vx + vy*vy || 1);
+      const t = clamp(proj, 0, 1);
+      const px = p0.x + t*vx, py = p0.y + t*vy;
+      const dx = c.x - px, dy = c.y - py;
+      return (dx*dx + dy*dy) <= r*r;
+    }
+
+    // Об'єкти
+    function makeCoin(){
+      const x = rand(60, canvas.clientWidth-60);
+      const y = canvas.clientHeight + rand(20, 120);
+      const r = rand(COIN_RADIUS_MIN, COIN_RADIUS_MAX);
+      const elapsed = (now() - startTime) / 1000;
+      const level = Math.floor(elapsed / 10);
+      const speedMul = 1 + level * 0.15;
+      const vx = rand(-BASE_VX_ABS, BASE_VX_ABS) * speedMul;
+      const vy = rand(BASE_VY_MAX, BASE_VY_MIN) * speedMul; // негативне (вгору)
+      return {
+        x, y, r,
+        vx, vy,
+        rotation: rand(0, Math.PI*2),
+        spin: rand(-0.08, 0.08),
+        sliced: false,
+        entered: false, // чи входила монета в екран
+        born: now()
+      };
+    }
+
+    function makePiecesFrom(coin, cutAngle){
+      // Дві півмонети уздовж лінії розрізу через центр під кутом cutAngle
+      const baseSpeed = Math.hypot(coin.vx, coin.vy);
+      const nx = Math.cos(cutAngle + Math.PI/2);
+      const ny = Math.sin(cutAngle + Math.PI/2);
+      const impulse = clamp(baseSpeed*0.35 + rand(1.5, 3), 2, 10);
+      const p1 = {
+        x: coin.x, y: coin.y, r: coin.r,
+        vx: coin.vx + nx*impulse,
+        vy: coin.vy + ny*impulse,
+        rotation: coin.rotation,
+        spin: coin.spin + rand(-0.06, 0.06),
+        angle: cutAngle, side: 0, born: now()
+      };
+      const p2 = {
+        x: coin.x, y: coin.y, r: coin.r,
+        vx: coin.vx - nx*impulse,
+        vy: coin.vy - ny*impulse,
+        rotation: coin.rotation,
+        spin: coin.spin + rand(-0.06, 0.06),
+        angle: cutAngle, side: 1, born: now()
+      };
+      return [p1, p2];
+    }
+
+    // Малювання
+    function drawCoin(c){
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.rotation);
+      // Тінь
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 18;
+      ctx.shadowOffsetY = 6;
+      // Коло
+      ctx.beginPath();
+      ctx.arc(0,0,c.r,0,Math.PI*2);
+      ctx.closePath();
+      ctx.clip();
+      if (coinReady){
+        // Малюємо монету у межах кола
+        const pad = c.r*0.18;
+        const size = c.r*2 - pad*2;
+        ctx.drawImage(coinImg, -c.r+pad, -c.r+pad, size, size);
+        // Легка глянцева дуга
+        const grd = ctx.createRadialGradient(-c.r*0.4, -c.r*0.4, 0, 0,0, c.r);
+        grd.addColorStop(0, 'rgba(255,255,255,0.22)');
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(-c.r, -c.r, c.r*2, c.r*2);
+      } else {
+        // Плейсхолдер: синє коло + напис "DLI"
+        const grd = ctx.createRadialGradient(-c.r*0.4, -c.r*0.6, 0, 0,0, c.r);
+        grd.addColorStop(0, '#5ab0ff');
+        grd.addColorStop(1, '#2b6fb5');
+        ctx.fillStyle = grd;
+        ctx.fillRect(-c.r, -c.r, c.r*2, c.r*2);
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.floor(c.r*0.9)}px Segoe UI, Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('DLI', 0, 2);
+      }
+      ctx.restore();
+      // Контур
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.beginPath();
+      ctx.arc(0,0,c.r-0.5,0,Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPiece(p){
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      // Вирізаємо півколо за кутом розрізу
+      const start = p.angle + (p.side ? Math.PI : 0);
+      const end = start + Math.PI;
+      const r = p.r;
+
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,r, start, end);
+      ctx.closePath();
+      ctx.clip();
+
+      // Тінь
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetY = 5;
+
+      if (coinReady){
+        const pad = r*0.18;
+        const size = r*2 - pad*2;
+        ctx.drawImage(coinImg, -r+pad, -r+pad, size, size);
+      } else {
+        const grd = ctx.createRadialGradient(-r*0.4, -r*0.6, 0, 0,0, r);
+        grd.addColorStop(0, '#5ab0ff');
+        grd.addColorStop(1, '#2b6fb5');
+        ctx.fillStyle = grd;
+        ctx.fillRect(-r, -r, r*2, r*2);
+      }
+      // Трохи "м'якоті" по краю зрізу
+      ctx.globalCompositeOperation = 'source-over';
+      const edge = ctx.createLinearGradient(
+        Math.cos(start+Math.PI/2)*r*0.2, Math.sin(start+Math.PI/2)*r*0.2,
+        Math.cos(start+Math.PI/2)*-r*0.2, Math.sin(start+Math.PI/2)*-r*0.2
+      );
+      edge.addColorStop(0, 'rgba(255,255,255,0.35)');
+      edge.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = edge;
+      ctx.fillRect(-r, -r, r*2, r*2);
+      ctx.restore();
+    }
+
+    function drawTrail(){
+      if (trail.length < 2) return;
+      const tNow = now();
+      for (let i=1;i<trail.length;i++){
+        const a = trail[i-1], b = trail[i];
+        const age = tNow - b.t;
+        if (age > TRAIL_FADE_MS) continue;
+        const alpha = (1 - age/TRAIL_FADE_MS) * 0.9;
+        ctx.strokeStyle = `rgba(124,196,255,${alpha.toFixed(3)})`;
+        ctx.lineWidth = Math.max(1.5, 8 * (alpha));
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      // Світіння леза
+      const last = trail[trail.length-1];
+      if (last){
+        const grd = ctx.createRadialGradient(last.x, last.y, 0, last.x, last.y, 36);
+        grd.addColorStop(0, 'rgba(124,196,255,0.55)');
+        grd.addColorStop(1, 'rgba(124,196,255,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, 36, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    // Оновлення
+    function update(dt){
+      // Складність кожні 10 секунд
+      const elapsed = now() - startTime;
+      const level = Math.floor(elapsed / 10000);
+      spawnInterval = clamp(BASE_SPAWN_INTERVAL - level*SPAWN_STEP, MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL);
+
+      // Спавн
+      accumulator += dt;
+      if (accumulator >= spawnInterval){
+        accumulator = 0;
+        coins.push(makeCoin());
+      }
+
+      // Монети
+      for (let i=coins.length-1; i>=0; i--){
+        const c = coins[i];
+        c.vy += GRAVITY;
+        c.vx *= AIR_DRAG;
+        c.vy *= AIR_DRAG;
+        c.x += c.vx;
+        c.y += c.vy;
+        c.rotation += c.spin;
+        // Позначаємо, що монета з'явилась у візуальній зоні
+        if (!c.entered && c.y + c.r <= canvas.clientHeight){
+          c.entered = true;
+          sfx('spawn');
+        }
+        // РАМКИ: ліва/права/верхня
+        if (c.x - c.r < 0){
+          c.x = c.r;
+          c.vx = Math.abs(c.vx) * BOUNCE;
+          c.spin += 0.02;
+        } else if (c.x + c.r > canvas.clientWidth){
+          c.x = canvas.clientWidth - c.r;
+          c.vx = -Math.abs(c.vx) * BOUNCE;
+          c.spin -= 0.02;
+        }
+        if (c.y - c.r < 0){
+          c.y = c.r;
+          c.vy = Math.abs(c.vy) * BOUNCE; // вниз
+          c.spin += 0.02;
+        }
+        // Перевірка падіння: мінус життя якщо монета була на екрані
+        if (!c.sliced && c.entered && c.y - c.r > canvas.clientHeight){
+          lives = Math.max(0, lives - 1);
+          sfx('life');
+          if (livesEl) livesEl.textContent = String(lives);
+          coins.splice(i,1);
+          if (lives <= 0){
+            triggerGameOver();
+            return;
+          }
+          continue;
+        }
+        // Прибрати далеко за межами
+        if (c.y - c.r > canvas.clientHeight + 200){
+          coins.splice(i,1);
+        }
+      }
+
+      // Частини
+      for (let i=pieces.length-1; i>=0; i--){
+        const p = pieces[i];
+        p.vy += GRAVITY;
+        p.vx *= AIR_DRAG;
+        p.vy *= AIR_DRAG;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rotation += p.spin;
+        // РАМКИ для частин (м'якший відскок)
+        if (p.x - p.r < 0){
+          p.x = p.r;
+          p.vx = Math.abs(p.vx) * (BOUNCE * 0.85);
+          p.spin += 0.02;
+        } else if (p.x + p.r > canvas.clientWidth){
+          p.x = canvas.clientWidth - p.r;
+          p.vx = -Math.abs(p.vx) * (BOUNCE * 0.85);
+          p.spin -= 0.02;
+        }
+        if (p.y - p.r < 0){
+          p.y = p.r;
+          p.vy = Math.abs(p.vy) * (BOUNCE * 0.85);
+          p.spin += 0.02;
+        }
+        if (p.y - p.r > canvas.clientHeight + 200){
+          pieces.splice(i,1);
+        }
+      }
+
+      // Обрізання сліду
+      const tNow = now();
+      trail = trail.filter(pt => tNow - pt.t <= TRAIL_FADE_MS);
+    }
+
+    // Рендер
+    function render(){
+      // Тло
+      ctx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
+
+      // Частини під монетами для глибини
+      for (const p of pieces) drawPiece(p);
+      for (const c of coins) drawCoin(c);
+      drawTrail();
+
+      // Час
+      timeEl.textContent = fmtTime(Math.max(0, now() - startTime));
+    }
+
+    // Слайсінг
+    function handleCutSegment(a,b){
+      if (!a || !b) return;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      if (dx*dx + dy*dy < 9) return; // надто коротко
+      const cutAngle = Math.atan2(dy, dx);
+      for (let i=coins.length-1; i>=0; i--){
+        const c = coins[i];
+        if (c.sliced) continue;
+        if (segCircleHit(a, b, {x:c.x, y:c.y}, c.r)){
+          c.sliced = true;
+          score += 1;
+          scoreEl.textContent = String(score);
+          sfx('slice');
+          const [p1,p2] = makePiecesFrom(c, cutAngle);
+          pieces.push(p1,p2);
+          coins.splice(i,1);
+        }
+      }
+    }
+
+    // Події миші
+    function canvasPos(evt){
+      const rect = canvas.getBoundingClientRect();
+      return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+    function getMousePos(evt){
+      if (pointerLocked){
+        cursorX = clamp(cursorX + (evt.movementX || 0), 0, canvas.clientWidth);
+        cursorY = clamp(cursorY + (evt.movementY || 0), 0, canvas.clientHeight);
+        return { x: cursorX, y: cursorY };
+      }
+      return canvasPos(evt);
+    }
+    canvas.addEventListener('mousedown', (e)=>{
+      isCutting = true;
+      if (!pointerLocked) tryPointerLock();
+      lastMouse = getMousePos(e);
+      trail.push({x:lastMouse.x, y:lastMouse.y, t: now()});
+    });
+    canvas.addEventListener('mouseup', ()=>{
+      isCutting = false;
+      lastMouse = null;
+    });
+    canvas.addEventListener('mouseleave', ()=>{
+      isCutting = false;
+      lastMouse = null;
+    });
+    canvas.addEventListener('mousemove', (e)=>{
+      const pos = getMousePos(e);
+      if (isCutting && lastMouse){
+        handleCutSegment(lastMouse, pos);
+      }
+      if (isCutting){
+        trail.push({x: pos.x, y: pos.y, t: now()});
+        if (trail.length > TRAIL_MAX_POINTS) trail.shift();
+      }
+      lastMouse = pos;
+    });
+
+    // Головний цикл
+    function loop(ts){
+      if (!lastFrame) lastFrame = ts;
+      const dt = ts - lastFrame;
+      lastFrame = ts;
+      if (!gameOver){
+        update(dt);
+        render();
+        requestAnimationFrame(loop);
+      }
+    }
+
+    // Запуск / Перезапуск
+    function start(){
+      coins = [];
+      pieces = [];
+      score = 0;
+      scoreEl.textContent = '0';
+      startTime = now();
+      lastFrame = 0;
+      accumulator = 0;
+      spawnInterval = BASE_SPAWN_INTERVAL;
+      gameOver = false;
+      lives = MAX_LIVES;
+      if (livesEl) livesEl.textContent = String(lives);
+      overlay.style.display = 'none';
+      if (mainMenu) mainMenu.style.display = 'none';
+      if (hudEl) hudEl.style.display = 'flex';
+      stopMenuFx();
+      requestAnimationFrame(loop);
+    }
+    function triggerGameOver(){
+      gameOver = true;
+      overlay.style.display = 'flex';
+      if (document.exitPointerLock) document.exitPointerLock();
+      isCutting = false;
+      lastMouse = null;
+      sfx('gameover');
+    }
+    restartBtn.addEventListener('click', ()=>{
+      tryPointerLock();
+      start();
+    });
+    if (startBtn){
+      startBtn.addEventListener('click', ()=>{
+        cursorX = canvas.clientWidth/2;
+        cursorY = canvas.clientHeight/2;
+        tryPointerLock();
+        start();
+      });
+    }
+    if (menuBtn){
+      menuBtn.addEventListener('click', ()=>{
+        coins = [];
+        pieces = [];
+        overlay.style.display = 'none';
+        if (hudEl) hudEl.style.display = 'none';
+        if (mainMenu) mainMenu.style.display = 'flex';
+        startMenuFx();
+        applyLanguage();
+        if (document.exitPointerLock) document.exitPointerLock();
+      });
+    }
+
+    // Починаємо
+    if (hudEl) hudEl.style.display = 'none';
+    if (mainMenu) mainMenu.style.display = 'flex';
+    startMenuFx();
+    applyLanguage();
+  </script>
+</body>
+</html>
+
